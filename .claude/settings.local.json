@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"D:/python_Workbase/habitica_AI\" && uv run forge --version)",
+      "Bash(cd \"D:/python_Workbase/habitica_AI\" && uv run forge version)",
+      "Bash(cd \"D:/python_Workbase/habitica_AI\" && uv run forge --help)",
+      "Bash(cd \"D:/python_Workbase/habitica_AI\" && uv run forge init 2>&1 || true)",
+      "Bash(cd \"D:/python_Workbase/habitica_AI\" && uv run python tests/test_logger.py)",
+      "Bash(uv run:*)",
+      "Bash(python -m pytest tests/test_cache.py tests/test_habitica_client.py -v --tb=short 2>&1)",
+      "Bash(/c/Users/CDCAK/AppData/Local/Microsoft/WinGet/Packages/astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe/uv run:*)",
+      "Bash(cd D:/python_Workbase/habitica_AI && PYTHONIOENCODING=utf-8 uv run forge sync)",
+      "Bash(cd D:/python_Workbase/habitica_AI && PYTHONIOENCODING=utf-8 uv run forge list -t rewards)",
+      "Bash(cd D:/python_Workbase/habitica_AI && PYTHONIOENCODING=utf-8 uv run forge list -t habits)",
+      "Bash(cd D:/python_Workbase/habitica_AI && PYTHONIOENCODING=utf-8 uv run forge list -t dailys)",
+      "Bash(cd D:/python_Workbase/habitica_AI && PYTHONIOENCODING=utf-8 uv run forge list --all)",
+      "Bash(cd D:/python_Workbase/habitica_AI && PYTHONIOENCODING=utf-8 uv run forge list)",
+      "Bash(set PYTHONIOENCODING=utf-8 && uv run forge switch 1)",
+      "Bash($env:PYTHONIOENCODING='utf-8'; uv:*)",
+      "Bash(PYTHONIOENCODING=utf-8 uv run forge wall)",
+      "Bash(PYTHONIOENCODING=utf-8 uv run forge switch 1)"
+    ]
+  }
+}
