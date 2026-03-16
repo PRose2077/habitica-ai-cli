@@ -7,6 +7,18 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# ============================================
+# 风格相关函数从 styles 模块导入
+# ============================================
+# 注意：风格定义已移至 styles/ 目录，通过 YAML 文件管理
+# 添加新风格只需创建 styles/<style_name>.yaml 文件
+
+def normalize_style(style: str) -> str:
+    """标准化风格名称（延迟导入避免循环依赖）"""
+    from habitica_forge.styles import normalize_style as _normalize_style
+    return _normalize_style(style)
+
+
 class Settings(BaseSettings):
     """应用配置模型"""
 
@@ -98,10 +110,16 @@ class Settings(BaseSettings):
         alias="SCAN_INTERVAL_HOURS",
     )
     forge_style: str = Field(
-        default="Cyberpunk",
-        description="游戏化风格（Cyberpunk, Wuxia, Fantasy...）",
+        default="normal",
+        description="游戏化风格（normal, cyberpunk, wuxia, fantasy）",
         alias="FORGE_STYLE",
     )
+
+    @field_validator("forge_style")
+    @classmethod
+    def normalize_forge_style(cls, v: str) -> str:
+        """标准化风格名称"""
+        return normalize_style(v)
 
     @field_validator("habitica_user_id", "habitica_api_token", "llm_api_key")
     @classmethod

@@ -8,8 +8,8 @@ import typer
 
 from habitica_forge import __version__
 from habitica_forge.cli.commands import task_app
-from habitica_forge.cli.header import print_header
 from habitica_forge.cli.smart import smart_app
+from habitica_forge.cli.style import style_app
 from habitica_forge.cli.viewer import (
     render_daily_list,
     render_habit_list,
@@ -40,6 +40,9 @@ app.add_typer(task_app, name="task")
 
 # 注册智能拆解命令
 app.add_typer(smart_app, name="smart")
+
+# 注册风格管理命令
+app.add_typer(style_app, name="style")
 
 
 def _init_app():
@@ -108,10 +111,6 @@ def _resolve_checklist_item_id(task_id: str, item_id_or_index: str) -> str:
     return item_id_or_index
 
 
-# 不显示 Header 的命令列表
-_SKIP_HEADER_COMMANDS = {"version", "init", "help", None}
-
-
 def _check_and_spawn_scanner() -> None:
     """
     检查是否需要启动腐烂扫描器
@@ -132,11 +131,7 @@ def _check_and_spawn_scanner() -> None:
 def main(ctx: typer.Context):
     """Habitica-Forge CLI"""
     _init_app()
-
-    # 检查是否需要显示 Header
-    command_name = ctx.invoked_subcommand
-    if command_name not in _SKIP_HEADER_COMMANDS:
-        print_header()
+    # Header 已移除，称号只在表格标题中显示
 
 
 # ============================================
@@ -758,6 +753,36 @@ def smart_add(
     """
     from habitica_forge.cli.smart import smart_add as _smart_add_impl
     _smart_add_impl(text, notes, no_decompose)
+
+
+@app.command("edit")
+def smart_edit(
+    task_id: str = typer.Argument(..., help="任务编号或 ID"),
+    field: str = typer.Option(
+        "title",
+        "--field",
+        "-f",
+        help="要修改的字段: title(标题), notes(备注), checklist(子任务)",
+    ),
+    context: str = typer.Option(
+        ...,
+        "--context",
+        "-c",
+        help="提供给 AI 的额外上下文信息",
+    ),
+):
+    """
+    使用 AI 针对性修改任务的特定字段
+
+    根据用户提供的额外信息，让 AI 重新生成任务的标题、备注或子任务。
+
+    示例:
+        forge edit 1 -f title -c "周报是在飞书上写的"
+        forge edit 2 -f notes -c "这是给客户演示用的"
+        forge edit 3 -f checklist -c "需要在下午 5 点前完成"
+    """
+    from habitica_forge.cli.smart import smart_edit as _smart_edit_impl
+    _smart_edit_impl(task_id, field, context)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,45 @@
+# 奇幻风格配置
+name: fantasy
+display_name: 奇幻风格
+description: 魔法、龙、精灵、地下城等奇幻元素
+
+# 风格变量（用于渲染基础模板）
+variables:
+  # 风格基本信息
+  style_name: "奇幻"
+  style_description: "充满魔法和冒险气息"
+  style_elements: "魔法、龙、精灵、地下城、传说"
+
+  # 黑化主题
+  corruption_theme: "诅咒、堕落、黑暗魔法"
+  corruption_elements: "黑暗魔法、诅咒、堕落"
+
+  # 任务拆解示例
+  example_decompose_1: "搜寻魔法卷轴"
+  example_decompose_2: "解读神秘符文"
+  example_decompose_3: "施展计划咒语"
+  example_decompose_4: "净化房间空间"
+  example_decompose_5: "整理魔法物品"
+  example_decompose_6: "施展清洁魔法"
+  example_decompose_7: "探索数据迷宫"
+  example_decompose_8: "撰写冒险记录"
+  example_decompose_9: "施展完善术式"
+
+  # 称号生成示例
+  example_title_1: "试炼通过者"
+  example_title_2: "魔法学徒"
+  example_title_3: "任务征服者"
+  example_title_4: "光明使者"
+
+  # 任务黑化示例
+  example_corruption_1: "驱散诅咒的阴影 - 项目报告被黑暗魔法侵蚀"
+  example_corruption_2: "净化被污染的灵魂 - 文档堆放处已堕落"
+  example_corruption_3: "打破沉默的魔咒 - 邮件联络通道已被封印"
+
+  # 任务优化示例
+  example_refine_title_1: "完成 Q4 季度销售王国报告"
+  example_refine_title_2: "学习 Python 数据分析魔法"
+  example_refine_notes_1: "包含销售数据占卜、趋势预言魔法和改进符文"
+  example_refine_checklist_1: "寻找贤者获取智慧"
+  example_refine_checklist_2: "绘制修炼法阵"
+  example_refine_checklist_3: "练习基础魔法"

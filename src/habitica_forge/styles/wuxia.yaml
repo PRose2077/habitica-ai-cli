@@ -1,0 +1,45 @@
+# 武侠风格配置
+name: wuxia
+display_name: 武侠风格
+description: 武功、门派、江湖、修炼等武侠元素
+
+# 风格变量（用于渲染基础模板）
+variables:
+  # 风格基本信息
+  style_name: "武侠"
+  style_description: "充满江湖气息和武道精神"
+  style_elements: "武功、门派、江湖、修炼、内功"
+
+  # 黑化主题
+  corruption_theme: "走火入魔、内伤发作、心魔侵蚀"
+  corruption_elements: "内功逆行、走火入魔、心魔侵蚀"
+
+  # 任务拆解示例
+  example_decompose_1: "修炼内功搜集心法"
+  example_decompose_2: "参悟武学分析要义"
+  example_decompose_3: "演练招式制定套路"
+  example_decompose_4: "打扫演武场地"
+  example_decompose_5: "整理兵器架"
+  example_decompose_6: "清洁起居禅室"
+  example_decompose_7: "搜集江湖情报"
+  example_decompose_8: "撰写门派报告"
+  example_decompose_9: "修心养性完善方案"
+
+  # 称号生成示例
+  example_title_1: "内功初成者"
+  example_title_2: "武学新秀"
+  example_title_3: "门派功臣"
+  example_title_4: "侠义行者"
+
+  # 任务黑化示例
+  example_corruption_1: "压制翻涌的内伤 - 项目报告修炼已入魔道"
+  example_corruption_2: "驱除心魔的侵扰 - 文档整理经脉已紊乱"
+  example_corruption_3: "打通闭塞的穴道 - 邮件回复气机已淤滞"
+
+  # 任务优化示例
+  example_refine_title_1: "完成 Q4 季度销售门派报告"
+  example_refine_title_2: "修炼 Python 数据分析心法"
+  example_refine_notes_1: "包含销售数据推演、趋势预测心法和武道改进建议"
+  example_refine_checklist_1: "寻访名师获取秘籍"
+  example_refine_checklist_2: "制定修炼计划"
+  example_refine_checklist_3: "演练基础招式"

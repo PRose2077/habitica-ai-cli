@@ -8,6 +8,7 @@ import httpx
 from pydantic import BaseModel
 
 from habitica_forge.core.config import settings
+from habitica_forge.styles import get_style_config
 from habitica_forge.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -205,7 +206,7 @@ class LLMClient:
     async def smart_decompose(
         self,
         task_text: str,
-        style: str = "Cyberpunk",
+        style: str = "normal",
         existing_checklist: Optional[List[str]] = None,
     ) -> "SmartDecomposeResult":
         """
@@ -243,7 +244,7 @@ class LLMClient:
         self,
         task_text: str,
         existing_titles: List[str],
-        style: str = "Cyberpunk",
+        style: str = "normal",
     ) -> "TitleGenerationResult":
         """
         生成新称号
@@ -281,7 +282,7 @@ class LLMClient:
     async def batch_corrupt_tasks(
         self,
         tasks: List[Dict[str, Any]],
-        style: str = "Cyberpunk",
+        style: str = "normal",
     ) -> "BatchCorruptionResult":
         """
         批量黑化任务
@@ -319,6 +320,52 @@ class LLMClient:
         )
 
         logger.info(f"Batch corruption completed for {len(result.tasks)} tasks")
+        return result
+
+    async def refine_task_field(
+        self,
+        task_text: str,
+        field_type: str,
+        context: str,
+        existing_notes: Optional[str] = None,
+        existing_checklist: Optional[List[str]] = None,
+        style: str = "normal",
+    ) -> "RefineFieldResult":
+        """
+        优化任务的特定字段
+
+        Args:
+            task_text: 任务标题
+            field_type: 要优化的字段类型 (title, notes, checklist)
+            context: 用户提供的额外上下文信息
+            existing_notes: 现有的任务备注
+            existing_checklist: 现有的子任务列表
+            style: 游戏化风格
+
+        Returns:
+            优化结果
+        """
+        system_prompt = _build_refine_prompt(style, field_type)
+
+        user_content = f"任务标题: {task_text}\n\n用户提供的额外信息: {context}"
+
+        if field_type == "notes" and existing_notes:
+            user_content += f"\n\n现有备注: {existing_notes}"
+        elif field_type == "checklist" and existing_checklist:
+            user_content += f"\n\n现有子任务:\n" + "\n".join(f"- {item}" for item in existing_checklist)
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+
+        result = await self.chat_completion_json(
+            messages=messages,
+            response_model=RefineFieldResult,
+            temperature=0.7,
+        )
+
+        logger.info(f"Field refined: {field_type} for task: {task_text[:30]}...")
         return result
 
 
@@ -366,30 +413,22 @@ class BatchCorruptionResult(BaseModel):
     tasks: List[CorruptionTaskItem] = []
 
 
+class RefineFieldResult(BaseModel):
+    """字段优化结果"""
+
+    field_type: str  # title, notes, checklist
+    original_value: Optional[str] = None
+    refined_value: str
+    explanation: Optional[str] = None  # AI 的修改说明
+    checklist: Optional[List[ChecklistSuggestion]] = None  # 仅当 field_type=checklist 时使用
+
+
 # ============================================
 # Prompt 模板
 # ============================================
 
-
-def _build_decompose_prompt(style: str) -> str:
-    """构建拆解任务的 System Prompt"""
-
-    style_prompts = {
-        "Cyberpunk": """你是一个赛博朋克风格的任务分解专家。你用充满未来感和科技感的语言来描述任务。
-任务描述应该带有霓虹灯、数据流、黑客、神经网络等赛博朋克元素。
-例如："接入神经网络"、"破解加密数据"、"上传意识备份"等。""",
-        "Wuxia": """你是一个武侠风格的任务分解专家。你用充满江湖气息的语言来描述任务。
-任务描述应该带有武功、门派、江湖、修炼等武侠元素。
-例如："修炼内功"、"闯荡江湖"、"拜师学艺"等。""",
-        "Fantasy": """你是一个奇幻风格的任务分解专家。你用充满魔法和冒险的语言来描述任务。
-任务描述应该带有魔法、龙、精灵、地下城等奇幻元素。
-例如："探索地牢"、"收集魔法水晶"、"击败巨龙"等。""",
-    }
-
-    style_intro = style_prompts.get(style, style_prompts["Cyberpunk"])
-
-    return f"""{style_intro}
-
+# 通用 Prompt 模板（不随风格变化）
+_DECOMPOSE_TEMPLATE = """
 你的任务是将用户的模糊任务描述分解为清晰、可执行的子任务步骤。
 
 ## 输出要求
@@ -422,26 +461,7 @@ def _build_decompose_prompt(style: str) -> str:
 
 请记住：你的目标是帮助用户把模糊焦虑转化为清晰可执行的步骤，同时用有趣的语言风格增加动力！"""
 
-
-def _build_title_prompt(style: str) -> str:
-    """构建称号生成的 System Prompt"""
-
-    style_prompts = {
-        "Cyberpunk": """你是一个赛博朋克风格的称号设计师。你创造的称号带有未来感和科技感。
-称号应该让人联想到霓虹灯、数据流、黑客、神经网络、赛博空间等元素。
-例如："数据猎手"、"神经网络入侵者"、"霓虹行者"、"量子幽灵"等。""",
-        "Wuxia": """你是一个武侠风格的称号设计师。你创造的称号带有江湖气息和武道精神。
-称号应该让人联想到武功、门派、江湖、修炼、内功等元素。
-例如："剑意初成"、"江湖浪子"、"内劲小成"、"掌风如雷"等。""",
-        "Fantasy": """你是一个奇幻风格的称号设计师。你创造的称号带有魔法和冒险的气息。
-称号应该让人联想到魔法、龙、精灵、地下城、传说等元素。
-例如："龙血觉醒者"、"魔法学徒"、"地牢探险家"、"符文猎手"等。""",
-    }
-
-    style_intro = style_prompts.get(style, style_prompts["Cyberpunk"])
-
-    return f"""{style_intro}
-
+_TITLE_TEMPLATE = """
 你的任务是根据用户完成的任务内容，生成一个独特的、有意义的称号。
 
 ## 输出要求
@@ -467,26 +487,7 @@ def _build_title_prompt(style: str) -> str:
 
 请记住：你的目标是让用户对获得称号感到兴奋，增加游戏的趣味性和动力！"""
 
-
-def _build_corruption_prompt(style: str) -> str:
-    """构建任务黑化的 System Prompt"""
-
-    style_prompts = {
-        "Cyberpunk": """你是一个赛博朋克风格的任务黑化专家。你用充满腐化和堕落感的语言来描述任务。
-任务描述应该带有数据腐蚀、系统故障、意识崩溃等赛博朋克元素。
-例如："修复腐烂的神经网络"、"从崩溃的数据中恢复记忆"等。""",
-        "Wuxia": """你是一个武侠风格的任务黑化专家。你用充满走火入魔和内伤的语言来描述任务。
-任务描述应该带有内功逆行、走火入魔、心魔侵蚀等武侠元素。
-例如："压制翻涌的内伤"、"驱除心魔的侵扰"等。""",
-        "Fantasy": """你是一个奇幻风格的任务黑化专家。你用充满诅咒和堕落感的语言来描述任务。
-任务描述应该带有黑暗魔法、诅咒、堕落等奇幻元素。
-例如："驱散诅咒的阴影"、"净化被污染的灵魂"等。""",
-    }
-
-    style_intro = style_prompts.get(style, style_prompts["Cyberpunk"])
-
-    return f"""{style_intro}
-
+_CORRUPTION_TEMPLATE = """
 你的任务是将用户过期的任务进行"黑化"处理，让任务标题带有腐化、堕落的风格，以产生紧迫感和行动动力。
 
 ## 输出要求
@@ -515,6 +516,98 @@ def _build_corruption_prompt(style: str) -> str:
 - 保持任务的独特性，不要所有任务都用相同的黑化模式
 
 请记住：你的目标是通过戏剧化的黑化，激励用户尽快处理过期任务！"""
+
+_REFINE_TEMPLATES = {
+    "title": """
+用户希望优化任务标题。你需要根据用户提供的额外信息，生成一个更准确、更具体的任务标题。
+
+## 输出要求
+请以 JSON 格式输出结果：
+```json
+{
+    "field_type": "title",
+    "original_value": "原标题",
+    "refined_value": "优化后的标题",
+    "explanation": "简要说明修改原因（可选）"
+}
+```
+
+## 优化原则
+1. 保持任务的核心意图
+2. 根据用户提供的上下文信息，让标题更具体、更有指导性
+3. 标题应该简洁有力，不超过 50 个字符""",
+
+    "notes": """
+用户希望优化任务备注。你需要根据用户提供的额外信息，生成有用的任务备注。
+
+## 输出要求
+请以 JSON 格式输出结果：
+```json
+{
+    "field_type": "notes",
+    "original_value": "原备注（如有）",
+    "refined_value": "优化后的备注",
+    "explanation": "简要说明修改原因（可选）"
+}
+```
+
+## 优化原则
+1. 备注应该提供有用的背景信息、上下文或执行建议
+2. 根据用户提供的额外信息，补充相关的细节
+3. 备注可以包含相关链接、工具、方法等实用信息""",
+
+    "checklist": """
+用户希望优化任务的子任务列表。你需要根据用户提供的额外信息，重新生成更合适的子任务。
+
+## 输出要求
+请以 JSON 格式输出结果：
+```json
+{
+    "field_type": "checklist",
+    "original_value": "原有子任务概要",
+    "refined_value": "优化说明",
+    "explanation": "简要说明修改原因",
+    "checklist": [
+        {"text": "子任务描述", "priority": "优先级"}
+    ]
+}
+```
+
+## 优化原则
+1. 子任务应该具体、可操作，有明确的完成标准
+2. 根据用户提供的上下文信息，调整子任务的具体内容
+3. 每个子任务应该能在 30 分钟内完成
+4. 复杂任务分解为 3-7 个子任务""",
+}
+
+
+def _build_decompose_prompt(style: str) -> str:
+    """构建拆解任务的 System Prompt"""
+    style_config = get_style_config(style)
+    style_intro = style_config.prompts.decompose
+    return f"{style_intro}\n{_DECOMPOSE_TEMPLATE}"
+
+
+def _build_title_prompt(style: str) -> str:
+    """构建称号生成的 System Prompt"""
+    style_config = get_style_config(style)
+    style_intro = style_config.prompts.title
+    return f"{style_intro}\n{_TITLE_TEMPLATE}"
+
+
+def _build_corruption_prompt(style: str) -> str:
+    """构建任务黑化的 System Prompt"""
+    style_config = get_style_config(style)
+    style_intro = style_config.prompts.corruption
+    return f"{style_intro}\n{_CORRUPTION_TEMPLATE}"
+
+
+def _build_refine_prompt(style: str, field_type: str) -> str:
+    """构建字段优化的 System Prompt"""
+    style_config = get_style_config(style)
+    style_intro = style_config.prompts.get_refine(field_type)
+    field_template = _REFINE_TEMPLATES.get(field_type, _REFINE_TEMPLATES["title"])
+    return f"{style_intro}\n{field_template}\n\n请记住：根据用户的额外信息，生成更符合其实际需求的任务内容！"""
 
 
 # 全局客户端实例（延迟初始化）

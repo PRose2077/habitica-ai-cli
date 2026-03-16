@@ -192,33 +192,38 @@ class TestLLMClient:
 class TestBuildDecomposePrompt:
     """测试 Prompt 构建"""
 
-    def test_default_style(self):
-        """测试默认风格（赛博朋克）"""
-        prompt = _build_decompose_prompt("Cyberpunk")
+    def test_cyberpunk_style(self):
+        """测试赛博朋克风格"""
+        prompt = _build_decompose_prompt("cyberpunk")
         assert "赛博朋克" in prompt
         assert "霓虹灯" in prompt or "神经网络" in prompt
 
     def test_wuxia_style(self):
         """测试武侠风格"""
-        prompt = _build_decompose_prompt("Wuxia")
+        prompt = _build_decompose_prompt("wuxia")
         assert "武侠" in prompt
         assert "江湖" in prompt or "修炼" in prompt
 
     def test_fantasy_style(self):
         """测试奇幻风格"""
-        prompt = _build_decompose_prompt("Fantasy")
+        prompt = _build_decompose_prompt("fantasy")
         assert "奇幻" in prompt
         assert "魔法" in prompt or "龙" in prompt
 
+    def test_normal_style(self):
+        """测试正常风格"""
+        prompt = _build_decompose_prompt("normal")
+        assert "简洁" in prompt or "直接" in prompt
+
     def test_unknown_style_fallback(self):
-        """测试未知风格回退到默认"""
+        """测试未知风格回退到 normal"""
         prompt = _build_decompose_prompt("UnknownStyle")
-        # 应该回退到赛博朋克
-        assert "赛博朋克" in prompt
+        # 应该回退到 normal 风格
+        assert "简洁" in prompt or "直接" in prompt
 
     def test_output_format(self):
         """测试输出格式要求"""
-        prompt = _build_decompose_prompt("Cyberpunk")
+        prompt = _build_decompose_prompt("cyberpunk")
         assert "JSON" in prompt
         assert "task_title" in prompt
         assert "checklist" in prompt

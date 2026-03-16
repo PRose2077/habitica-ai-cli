@@ -1,0 +1,45 @@
+# 正常风格配置
+name: normal
+display_name: 正常风格
+description: 克制、直接、低装饰的文案
+
+# 风格变量（用于渲染基础模板）
+variables:
+  # 风格基本信息
+  style_name: "正常"
+  style_description: "简洁、直接、有成就感"
+  style_elements: "清晰、具体、可操作"
+
+  # 黑化主题
+  corruption_theme: "紧迫感和提醒性质"
+  corruption_elements: "紧迫、提醒、重要"
+
+  # 任务拆解示例
+  example_decompose_1: "收集相关资料"
+  example_decompose_2: "分析核心需求"
+  example_decompose_3: "制定执行计划"
+  example_decompose_4: "整理桌面区域"
+  example_decompose_5: "分类收纳物品"
+  example_decompose_6: "清洁地面表面"
+  example_decompose_7: "收集数据资料"
+  example_decompose_8: "撰写初稿内容"
+  example_decompose_9: "审阅修改完善"
+
+  # 称号生成示例
+  example_title_1: "任务完成者"
+  example_title_2: "技能学习者"
+  example_title_3: "项目交付者"
+  example_title_4: "热心助人者"
+
+  # 任务黑化示例
+  example_corruption_1: "⚠️ 逾期提醒：完成项目报告已超期"
+  example_corruption_2: "🔴 紧急：整理文档堆积严重"
+  example_corruption_3: "⏰ 延误警告：回复邮件已拖延多日"
+
+  # 任务优化示例
+  example_refine_title_1: "完成 Q4 季度销售项目报告"
+  example_refine_title_2: "学习 Python 数据分析技能"
+  example_refine_notes_1: "包含销售数据分析、趋势预测和改进建议三个部分"
+  example_refine_checklist_1: "查找优质学习资源"
+  example_refine_checklist_2: "制定学习计划"
+  example_refine_checklist_3: "完成基础练习"

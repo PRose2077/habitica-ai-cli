@@ -6,7 +6,6 @@ from typing import List, Optional
 
 import typer
 
-from habitica_forge.cli.header import print_header
 from habitica_forge.clients.habitica import HabiticaClient
 from habitica_forge.core.cache import get_cache_manager
 from habitica_forge.models import ChecklistItem, TaskData
@@ -25,9 +24,7 @@ task_app = typer.Typer(name="task", help="任务管理命令")
 @task_app.callback(invoke_without_command=True)
 def task_callback(ctx: typer.Context):
     """任务管理命令"""
-    # 显示 Header（除了 help 命令）
-    if ctx.invoked_subcommand != "help" and ctx.invoked_subcommand is not None:
-        print_header()
+    pass
 
 
 def _run_async(coro):

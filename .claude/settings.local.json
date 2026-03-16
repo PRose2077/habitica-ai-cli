@@ -18,7 +18,11 @@
       "Bash(set PYTHONIOENCODING=utf-8 && uv run forge switch 1)",
       "Bash($env:PYTHONIOENCODING='utf-8'; uv:*)",
       "Bash(PYTHONIOENCODING=utf-8 uv run forge wall)",
-      "Bash(PYTHONIOENCODING=utf-8 uv run forge switch 1)"
+      "Bash(PYTHONIOENCODING=utf-8 uv run forge switch 1)",
+      "Bash(find:*)",
+      "Bash(cd:*)",
+      "Bash(python:*)",
+      "Bash(py:*)"
     ]
   }
 }

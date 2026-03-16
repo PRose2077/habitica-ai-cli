@@ -6,7 +6,6 @@ from typing import List, Optional
 import typer
 
 from habitica_forge.ai.llm_client import LLMClient, SmartDecomposeResult
-from habitica_forge.cli.header import print_header
 from habitica_forge.clients.habitica import HabiticaClient
 from habitica_forge.core.bounty import trigger_bounty_drop
 from habitica_forge.core.cache import get_cache_manager
@@ -27,9 +26,7 @@ smart_app = typer.Typer(name="smart", help="AI 智能拆解命令")
 @smart_app.callback(invoke_without_command=True)
 def smart_callback(ctx: typer.Context):
     """AI 智能拆解命令"""
-    # 显示 Header（除了 help 命令）
-    if ctx.invoked_subcommand != "help" and ctx.invoked_subcommand is not None:
-        print_header()
+    pass
 
 
 # 优先级映射
@@ -403,6 +400,110 @@ def smart_refine(
             # 显示结果
             print_success(f"任务子任务已优化: {updated_task.id[:8]}")
             _render_decompose_result(result)
+
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        print_error(f"优化失败: {e}")
+        raise typer.Exit(1)
+
+
+# ============================================
+# forge smart-edit 命令（针对性修改任务字段）
+# ============================================
+
+
+@smart_app.command("edit")
+def smart_edit(
+    task_id: str = typer.Argument(..., help="任务编号或 ID"),
+    field: str = typer.Option(
+        "title",
+        "--field",
+        "-f",
+        help="要修改的字段: title(标题), notes(备注), checklist(子任务)",
+    ),
+    context: str = typer.Option(
+        ...,
+        "--context",
+        "-c",
+        help="提供给 AI 的额外上下文信息",
+    ),
+):
+    """
+    使用 AI 针对性修改任务的特定字段
+
+    根据用户提供的额外信息，让 AI 重新生成任务的标题、备注或子任务。
+
+    示例:
+        forge smart edit 1 -f title -c "周报是在飞书上写的"
+        forge smart edit 2 -f notes -c "这是给客户演示用的"
+        forge smart edit 3 -f checklist -c "需要在下午 5 点前完成"
+    """
+    # 验证字段类型
+    valid_fields = {"title", "notes", "checklist"}
+    if field not in valid_fields:
+        print_error(f"无效的字段类型: {field}")
+        console.print(f"可用字段: {', '.join(valid_fields)}")
+        raise typer.Exit(1)
+
+    # 解析任务 ID
+    resolved_id = _resolve_task_id(task_id)
+
+    async def _run():
+        async with HabiticaClient() as habitica_client:
+            # 获取现有任务
+            with console.status("[bold cyan]正在获取任务信息...[/]"):
+                existing_task = await habitica_client.get_task(resolved_id)
+
+            if existing_task.completed:
+                print_warning("任务已完成，无法修改")
+                return
+
+            # 调用 LLM 进行字段优化
+            with console.status(f"[bold yellow]正在优化{field}...[/]"):
+                current_settings = get_settings()
+                async with LLMClient() as llm_client:
+                    result = await llm_client.refine_task_field(
+                        task_text=existing_task.text,
+                        field_type=field,
+                        context=context,
+                        existing_notes=existing_task.notes,
+                        existing_checklist=[item.text for item in existing_task.checklist] if existing_task.checklist else None,
+                        style=current_settings.forge_style,
+                    )
+
+            # 更新任务
+            updates = {}
+            if field == "title":
+                updates["text"] = result.refined_value
+            elif field == "notes":
+                updates["notes"] = result.refined_value
+            elif field == "checklist" and result.checklist:
+                updates["checklist"] = [
+                    {"text": item.text, "completed": False}
+                    for item in result.checklist
+                ]
+
+            if updates:
+                await habitica_client.update_task(resolved_id, **updates)
+                get_cache_manager().invalidate_all()
+
+            # 显示结果
+            print_success(f"任务{field}已优化: {resolved_id[:8]}")
+            console.print()
+
+            if result.explanation:
+                console.print(f"[dim]AI 说明: {result.explanation}[/]")
+                console.print()
+
+            console.print(f"[label]原内容:[/] {result.original_value or '无'}")
+            console.print(f"[label]新内容:[/] [green]{result.refined_value}[/]")
+
+            if field == "checklist" and result.checklist:
+                console.print()
+                console.print(f"[label]子任务 ({len(result.checklist)}):[/]")
+                for i, item in enumerate(result.checklist, 1):
+                    console.print(f"  [yellow]{i}[/]. {item.text}")
 
     try:
         asyncio.run(_run())

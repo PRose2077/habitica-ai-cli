@@ -14,6 +14,15 @@ from rich.theme import Theme
 # 检测是否在 Windows 下运行
 IS_WINDOWS = sys.platform == "win32"
 
+# Windows 下强制设置控制台 UTF-8 编码
+if IS_WINDOWS:
+    import io
+    # 强制设置 stdout/stderr 为 UTF-8
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'buffer'):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # 自定义主题
 custom_theme = Theme(
     {
