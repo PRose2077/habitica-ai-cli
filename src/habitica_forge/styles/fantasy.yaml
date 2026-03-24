@@ -1,11 +1,155 @@
 # 奇幻风格配置
+# V2 世界观词典系统
+
 name: fantasy
 display_name: 奇幻风格
 description: 魔法、龙、精灵、地下城等奇幻元素
 
-# 风格变量（用于渲染基础模板）
+# ============================================
+# 世界观词典 (Lexicon)
+# ============================================
+
+lexicon:
+  # 任务动词词典 - 按原型分类
+  verbs:
+    cleanup: ["净化", "驱除", "清扫", "洗礼", "驱逐", "清除"]
+    repair: ["修复", "治愈", "复原", "重建", "加固", "修补"]
+    explore: ["探索", "搜寻", "寻觅", "侦察", "探测", "冒险"]
+    craft: ["锻造", "铸造", "创造", "雕琢", "编织", "炼制"]
+    communicate: ["传讯", "联络", "召见", "会晤", "书信", "传音"]
+    learn: ["研习", "修炼", "参悟", "领悟", "习得", "钻研"]
+    battle: ["讨伐", "征服", "战胜", "击退", "斩杀", "挑战"]
+    supply: ["采购", "收集", "筹备", "补给", "搜罗", "囤积"]
+
+  # 名词词典 - 按原型分类
+  nouns:
+    cleanup: ["污秽", "诅咒", "阴影", "杂物", "瘴气", "黑暗"]
+    repair: ["创伤", "裂痕", "损坏", "破损", "残缺", "伤痕"]
+    explore: ["遗迹", "宝藏", "秘境", "未知", "禁地", "秘宝"]
+    craft: ["神器", "魔法", "卷轴", "物品", "造物", "秘器"]
+    communicate: ["信使", "公会", "同伴", "盟友", "传讯", "使者"]
+    learn: ["魔法", "咒语", "技能", "智慧", "奥秘", "秘术"]
+    battle: ["怪物", "敌人", "魔兽", "魔王", "巨龙", "妖魔"]
+    supply: ["物资", "药剂", "装备", "补给品", "材料", "宝物"]
+
+  # 地点词典 - 现实地点到奇幻地点映射
+  locations:
+    # 家居空间
+    home: "领地"
+    room: "营帐"
+    bedroom: "寝室"
+    kitchen: "补给站"
+    bathroom: "净身室"
+    living_room: "大厅"
+    study: "藏书阁"
+    garage: "马厩"
+    garden: "灵园"
+    # 工作空间
+    office: "公会大厅"
+    desk: "工作台"
+    meeting_room: "议事厅"
+    # 学习空间
+    library: "法师塔"
+    classroom: "修炼场"
+    lab: "炼金室"
+    # 户外空间
+    outdoors: "荒野"
+    gym: "演武场"
+    store: "集市"
+    # 抽象空间
+    online: "魔法网络"
+    computer: "魔法终端"
+    phone: "传音石"
+
+  # 称号词典 - 按领域分类
+  titles:
+    productivity: ["任务征服者", "契约完成者", "赏金猎人"]
+    learning: ["魔法学徒", "知识追寻者", "秘术研习者"]
+    health: ["体魄强化者", "自律战士", "修炼达人"]
+    creativity: ["锻造大师", "创造者", "神匠"]
+    social: ["光明使者", "外交官", "信使之友"]
+    default: ["冒险者", "探索者", "英雄"]
+
+  # 敌人/挑战词典 - 按类型分类
+  enemies:
+    procrastination: "懒惰魔"
+    distraction: "分心幻灵"
+    fatigue: "力竭诅咒"
+    confusion: "迷惑术"
+    overload: "魔力过载"
+    disorder: "混沌之力"
+    default: "黑暗势力"
+
+  # 稀有度词典
+  rarities:
+    trivial: "杂务"
+    easy: "委托"
+    medium: "重要委托"
+    hard: "传奇委托"
+    legendary: "史诗使命"
+
+# ============================================
+# 任务类型命名模板
+# ============================================
+
+templates:
+  # Habit 模板 - 强调修炼和成长
+  habit:
+    positive: "【修炼】{action}"
+    negative: "【克制】避免{action}"
+    neutral: "【习惯】{action}"
+
+  # Daily 模板 - 强调守护和巡逻
+  daily:
+    with_location: "【{location}】{action}"
+    simple: "【巡逻】{action}"
+    routine: "【例行】{action}"
+
+  # Todo 模板 - 强调委托感
+  todo:
+    with_priority: "【{priority}】{title}"
+    with_location: "【{location}】{title}"
+    simple: "【委托】{title}"
+    legendary: "【传奇】{title}"
+
+# ============================================
+# 任务上下文词典
+# ============================================
+
+context:
+  # 工作类任务上下文
+  work:
+    location_hints: ["工作", "公司", "项目", "会议", "报告", "邮件"]
+    location_mapping: "公会"
+    verbs: ["交付", "汇报", "协调", "推进", "完成"]
+    tone: "公会事务"
+
+  # 学习类任务上下文
+  study:
+    location_hints: ["学习", "阅读", "课程", "练习", "培训", "研究"]
+    location_mapping: "法师塔"
+    verbs: ["研习", "领悟", "修炼", "参悟", "掌握"]
+    tone: "修炼秘术"
+
+  # 家务类任务上下文
+  home:
+    location_hints: ["打扫", "整理", "清洁", "做饭", "洗衣", "收拾"]
+    location_mapping: "营地"
+    verbs: ["净化", "整理", "维护", "准备", "清理"]
+    tone: "营地维护"
+
+  # 个人发展上下文
+  personal:
+    location_hints: ["健身", "运动", "冥想", "休息", "健康"]
+    location_mapping: "演武场"
+    verbs: ["修炼", "强化", "提升", "锻炼", "恢复"]
+    tone: "身心淬炼"
+
+# ============================================
+# 风格变量（用于渲染基础模板，V1 兼容）
+# ============================================
+
 variables:
-  # 风格基本信息
   style_name: "奇幻"
   style_description: "充满魔法和冒险气息"
   style_elements: "魔法、龙、精灵、地下城、传说"
@@ -43,3 +187,58 @@ variables:
   example_refine_checklist_1: "寻找贤者获取智慧"
   example_refine_checklist_2: "绘制修炼法阵"
   example_refine_checklist_3: "练习基础魔法"
+
+# ============================================
+# 质量基线样例 (Quality Baseline)
+# ============================================
+
+quality_baseline:
+  - input: "打扫房间"
+    output: "净化营帐空间"
+    archetype: cleanup
+    context: home
+
+  - input: "完成项目报告"
+    output: "交付公会任务报告"
+    archetype: craft
+    context: work
+
+  - input: "学习 Python"
+    output: "研习 Python 魔法技艺"
+    archetype: learn
+    context: study
+
+  - input: "回复客户邮件"
+    output: "传讯回复客户"
+    archetype: communicate
+    context: work
+
+  - input: "整理文档"
+    output: "整理魔法卷轴"
+    archetype: cleanup
+    context: work
+
+  - input: "购买日用品"
+    output: "搜罗补给物资"
+    archetype: supply
+    context: home
+
+  - input: "健身 30 分钟"
+    output: "演武场修炼 30 分钟"
+    archetype: learn
+    context: personal
+
+  - input: "解决代码 Bug"
+    output: "修复魔法阵裂痕"
+    archetype: repair
+    context: work
+
+  - input: "阅读一本书"
+    output: "研读知识卷轴"
+    archetype: learn
+    context: study
+
+  - input: "整理书架"
+    output: "整理藏书阁"
+    archetype: cleanup
+    context: home

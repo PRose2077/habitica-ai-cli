@@ -5,7 +5,7 @@ import json
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from habitica_forge.core.config import settings
 from habitica_forge.styles import get_style_config
@@ -208,19 +208,29 @@ class LLMClient:
         task_text: str,
         style: str = "normal",
         existing_checklist: Optional[List[str]] = None,
+        task_type: str = "todo",
     ) -> "SmartDecomposeResult":
         """
-        智能拆解任务
+        智能拆解任务 (V2 委托书模式)
+
+        V2 新增功能：
+        - 生成双名结构 (real_title + quest_title)
+        - 判断任务原型 (archetype)
+        - 生成地点和奖励感
+        - 章节化拆解
+        - 图片候选
+        - 验证游戏化约束
 
         Args:
             task_text: 任务内容
             style: 游戏化风格
             existing_checklist: 现有的 checklist 项（用于更新场景）
+            task_type: 任务类型 (habit/daily/todo)
 
         Returns:
             拆解结果
         """
-        system_prompt = _build_decompose_prompt(style)
+        system_prompt = _build_decompose_prompt(style, task_type)
 
         user_content = f"任务: {task_text}"
         if existing_checklist:
@@ -237,7 +247,188 @@ class LLMClient:
             temperature=0.8,
         )
 
+        # V2: 验证并修复游戏化约束
+        result = self._validate_and_fix_result(result, task_text)
+
+        # V2: 应用风格化的地点和奖励
+        result = self._apply_style_enhancements(result, style, task_text)
+
         logger.info(f"Smart decompose completed for: {task_text[:50]}...")
+        return result
+
+    def _apply_style_enhancements(
+        self,
+        result: "SmartDecomposeResult",
+        style: str,
+        original_text: str,
+    ) -> "SmartDecomposeResult":
+        """应用风格增强
+
+        根据 V2 词典系统增强任务的游戏化效果。
+        V2 阶段四：集成传奇任务检测和章节化。
+        V2 阶段五：简化，移除元数据相关处理。
+
+        Args:
+            result: AI 生成的结果
+            style: 风格名称
+            original_text: 原始任务文本
+
+        Returns:
+            增强后的结果
+        """
+        from habitica_forge.styles import get_style_config
+        from habitica_forge.quest.legendary import LegendaryDetector
+
+        style_config = get_style_config(style)
+
+        # 如果没有设置地点，尝试从上下文检测
+        if not result.location:
+            context = style_config.detect_task_context(original_text)
+            if context:
+                result.location = style_config.gamify_location(context, context)
+
+        # 使用传奇任务检测器
+        detector = LegendaryDetector(style)
+        is_legendary, legendary_config = detector.detect(
+            title=original_text,
+            checklist_count=len(result.checklist),
+            notes=result.task_notes,
+            user_specified=result.quest_type if result.is_legendary else None,
+        )
+
+        if is_legendary and legendary_config:
+            result.is_legendary = True
+            result.quest_type = legendary_config.type.value
+
+            # 应用传奇任务前缀
+            if result.quest_title and not any(
+                result.quest_title.startswith(p)
+                for prefixes in [
+                    ["【主线】", "【王命】", "【史诗】", "【核心】", "【重要】"],
+                    ["【远征】", "【探索】", "【冒险】", "【长期项目】"],
+                    ["【战役】", "【大战】", "【征讨】", "【多阶段】"],
+                    ["【史诗】", "【传奇】", "【神话】", "【超算级】"],
+                ]
+                for p in prefixes
+            ):
+                result.quest_title = detector.apply_prefix(
+                    result.quest_title,
+                    legendary_config,
+                )
+
+            # 如果有章节，设置章节数
+            if result.chapters:
+                legendary_config.chapter_count = len(result.chapters)
+
+        return result
+
+    def _validate_and_fix_result(
+        self,
+        result: "SmartDecomposeResult",
+        original_text: str,
+    ) -> "SmartDecomposeResult":
+        """验证并修复游戏化结果
+
+        确保游戏化约束被满足：
+        1. 标题存在
+        2. 标题长度限制
+
+        Args:
+            result: AI 生成的结果
+            original_text: 原始任务文本
+
+        Returns:
+            验证/修复后的结果
+        """
+        from habitica_forge.quest import truncate_title
+
+        # 确保 quest_title 存在
+        if not result.quest_title:
+            result.quest_title = original_text
+
+        # 确保标题长度
+        result.quest_title = truncate_title(result.quest_title)
+        result.task_title = result.quest_title
+
+        return result
+
+    async def refine_decompose_with_context(
+        self,
+        session: "DecomposeSession",
+        user_context: str,
+        style: str = "normal",
+    ) -> "SmartDecomposeResult":
+        """
+        基于对话历史和用户新输入重新拆解任务
+
+        支持多轮对话式交互，AI 会记住之前的调整和用户反馈。
+
+        Args:
+            session: 当前拆解会话
+            user_context: 用户提供的额外上下文或反馈
+            style: 游戏化风格
+
+        Returns:
+            更新后的拆解结果
+        """
+        system_prompt = _build_decompose_prompt(style)
+
+        # 构建对话历史
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # 添加原始任务
+        messages.append({
+            "role": "user",
+            "content": f"任务: {session.original_input}"
+        })
+
+        # 添加历史对话（包含之前的调整）
+        messages.extend(session.conversation_history)
+
+        # 构建当前状态的详细描述
+        current_result = session.current_result
+        checklist_items = []
+        for item in current_result.checklist:
+            checklist_items.append(f"  - [{item.priority}] {item.text}")
+        checklist_str = "\n".join(checklist_items) if checklist_items else "  (无)"
+
+        current_state = f"""当前拆解结果:
+- 任务标题: {current_result.task_title}
+- 任务备注: {current_result.task_notes or '(无)'}
+- 建议难度: {current_result.suggested_priority}
+- 子任务:
+{checklist_str}
+
+用户反馈: {user_context}
+
+请根据用户的反馈调整拆解结果。如果用户表示满意或确认，则保持当前结果基本不变。"""
+
+        messages.append({"role": "user", "content": current_state})
+
+        result = await self.chat_completion_json(
+            messages=messages,
+            response_model=SmartDecomposeResult,
+            temperature=0.7,
+        )
+
+        # 更新会话历史（记录这次交互）
+        session.add_user_message(user_context)
+
+        # 生成简要的 AI 响应摘要
+        changes = []
+        if result.task_title != current_result.task_title:
+            changes.append(f"标题改为: {result.task_title}")
+        if result.task_notes != current_result.task_notes:
+            changes.append(f"备注更新")
+        if len(result.checklist) != len(current_result.checklist):
+            changes.append(f"子任务数量: {len(result.checklist)} 个")
+
+        if changes:
+            session.add_assistant_message(f"已调整: {', '.join(changes)}")
+        else:
+            session.add_assistant_message("已根据您的反馈调整拆解结果")
+
+        logger.info(f"Refined decompose for: {session.original_input[:30]}...")
         return result
 
     async def generate_title(
@@ -374,20 +565,115 @@ class LLMClient:
 # ============================================
 
 
+class ChapterItem(BaseModel):
+    """章节项 (V2 阶段化拆解)"""
+
+    chapter_title: str = Field(..., description="章节标题，如'侦察现场'、'收集卷轴'")
+    chapter_number: int = Field(1, description="章节序号")
+    items: List["ChecklistSuggestion"] = Field(
+        default_factory=list,
+        description="章节内的子任务列表"
+    )
+
+
 class ChecklistSuggestion(BaseModel):
     """子任务建议"""
 
     text: str
     priority: str = "medium"  # trivial, easy, medium, hard
+    chapter_id: Optional[int] = Field(
+        None,
+        description="所属章节 ID（用于章节化拆解）"
+    )
 
 
 class SmartDecomposeResult(BaseModel):
-    """智能拆解结果"""
+    """智能拆解结果 (V2)
 
-    task_title: str
+    V2 阶段五简化：
+    - 使用 Tags 存储游戏化信息
+    - 移除元数据相关字段
+
+    核心字段：
+    - quest_title: 游戏化后的标题
+    - archetype: 任务原型
+    - location: 任务地点
+    - is_legendary: 是否为传奇任务
+    - chapters: 章节化拆解
+    - image_ids: 选择的图片 ID 列表
+    """
+
+    # 标题
+    quest_title: Optional[str] = Field(
+        None,
+        description="游戏名，游戏化后的标题"
+    )
+    archetype: Optional[str] = Field(
+        None,
+        description="任务原型: cleanup/repair/explore/craft/communicate/learn/battle/supply"
+    )
+
+    # 游戏化字段
+    location: Optional[str] = Field(
+        None,
+        description="任务地点（游戏化后的地点名）"
+    )
+    is_legendary: bool = Field(
+        False,
+        description="是否为传奇任务（复杂任务自动标记）"
+    )
+    quest_type: Optional[str] = Field(
+        None,
+        description="任务类型: main(主线)/side(支线)/legendary(传奇)"
+    )
+    legendary_type: Optional[str] = Field(
+        None,
+        description="传奇任务具体类型: main/expedition/campaign/escort/saga/chain"
+    )
+
+    # 任务链支持
+    chain_name: Optional[str] = Field(
+        None,
+        description="所属任务链名称（用于系列任务）"
+    )
+    chain_index: Optional[int] = Field(
+        None,
+        description="在任务链中的序号"
+    )
+
+    # 章节化拆解
+    chapters: List[ChapterItem] = Field(
+        default_factory=list,
+        description="章节化拆解（用于复杂任务）"
+    )
+
+    # 图片选择
+    image_ids: List[str] = Field(
+        default_factory=list,
+        description="选择的图片 ID 列表（从 images.yaml 中选择）"
+    )
+
+    # 原有字段
+    task_title: str = Field(
+        ...,
+        description="最终使用的任务标题"
+    )
     task_notes: Optional[str] = None
     suggested_priority: str = "easy"
     checklist: List[ChecklistSuggestion] = []
+
+    def model_post_init(self, __context):
+        """后处理：确保 task_title 正确，合并章节子任务"""
+        # 使用 quest_title 作为 task_title
+        if self.quest_title:
+            self.task_title = self.quest_title
+
+        # 如果有章节化拆解，将所有子任务合并到 checklist
+        if self.chapters and not self.checklist:
+            for chapter in self.chapters:
+                for item in chapter.items:
+                    item.chapter_id = chapter.chapter_number
+                    self.checklist.append(item)
 
 
 class TitleGenerationResult(BaseModel):
@@ -429,21 +715,65 @@ class RefineFieldResult(BaseModel):
 
 # 通用 Prompt 模板（不随风格变化）
 _DECOMPOSE_TEMPLATE = """
-你的任务是将用户的模糊任务描述分解为清晰、可执行的子任务步骤。
+你的任务是将用户的模糊任务描述转化为游戏化的任务委托书。
 
 ## 输出要求
 你必须输出一个 JSON 对象，格式如下：
 {{
-    "task_title": "优化后的任务标题（简短有力，保留原意）",
+    "quest_title": "游戏名，游戏化后的标题（不超过50字）",
+    "archetype": "任务原型（cleanup/repair/explore/craft/communicate/learn/battle/supply）",
+    "location": "任务地点（游戏化后的地点名，如'法师塔'、'指挥中心'）",
+    "is_legendary": false,
+    "quest_type": "任务类型（main/side/legendary，复杂任务标记为 legendary）",
+    "task_title": "最终使用的标题（通常与 quest_title 相同）",
     "task_notes": "任务备注（可选，提供额外上下文或建议）",
     "suggested_priority": "建议优先级（trivial/easy/medium/hard）",
-    "checklist": [
+    "image_ids": ["图片ID列表（从可用图片中选择，最多2个）"],
+    "chapters": [
         {{
-            "text": "子任务描述",
-            "priority": "子任务优先级（trivial/easy/medium/hard）"
+            "chapter_number": 1,
+            "chapter_title": "章节标题（如'侦察现场'、'收集卷轴'）",
+            "items": [
+                {{"text": "子任务描述", "priority": "优先级"}}
+            ]
         }}
-    ]
+    ],
+    "checklist": []  // 如果使用 chapters，这里留空
 }}
+
+## 委托书设计原则
+1. **地点感**：根据任务上下文分配合适的游戏化地点
+2. **章节化**：复杂任务拆分为 2-5 个章节，每章有明确目标
+3. **传奇标记**：超过 5 个子任务或需要多日完成的任务标记为 legendary
+4. **图片选择**：从可用图片中选择合适的图片，增强视觉效果
+
+## 任务原型说明
+根据任务性质选择最合适的原型：
+- cleanup（清理）: 清洁、整理、删除、清理
+- repair（修复）: 修理、修正、解决、修复
+- explore（探索）: 调研、搜索、发现、探索
+- craft（制作）: 创建、编写、设计、制作
+- communicate（沟通）: 联系、回复、协调、沟通
+- learn（学习）: 研究、阅读、练习、学习
+- battle（战斗）: 对抗、挑战、解决难题
+- supply（补给）: 购买、准备、补充、补给
+
+## 任务类型说明
+- main（主线）: 重要且紧急的任务
+- side（支线）: 可以稍后处理的任务
+- legendary（传奇）: 复杂、需要多步完成的史诗级任务
+
+## 游戏化约束
+1. 游戏名不超过 50 个字符
+2. 不要过度浮夸，保持任务的可执行性
+3. 如果风格是 normal，quest_title 可以与原标题相同
+4. 地点名称要与风格匹配
+
+## 章节化原则
+1. 复杂任务（3+ 子任务）优先使用章节化
+2. 每章 2-4 个子任务
+3. 章节标题要有推进感（准备→执行→完成）
+4. 简单任务（1-2 个子任务）可以不使用章节
 
 ## 分解原则
 1. 子任务应该具体、可操作、有明确的完成标准
@@ -451,7 +781,6 @@ _DECOMPOSE_TEMPLATE = """
 3. 每个子任务应该能在 30 分钟内完成
 4. 复杂任务分解为 3-7 个子任务，简单任务可以没有子任务
 5. 如果用户提供了现有子任务，在保留有价值内容的基础上进行优化
-6. 使用你擅长的风格来描述子任务，让任务更有趣味性
 
 ## 优先级说明
 - trivial: 非常简单，几分钟就能完成
@@ -459,7 +788,7 @@ _DECOMPOSE_TEMPLATE = """
 - medium: 中等难度，需要一些思考
 - hard: 困难，需要大量时间或专业技能
 
-请记住：你的目标是帮助用户把模糊焦虑转化为清晰可执行的步骤，同时用有趣的语言风格增加动力！"""
+请记住：你的目标是生成一张完整的任务委托书，让用户一眼就能了解任务的全貌！"""
 
 _TITLE_TEMPLATE = """
 你的任务是根据用户完成的任务内容，生成一个独特的、有意义的称号。
@@ -581,11 +910,47 @@ _REFINE_TEMPLATES = {
 }
 
 
-def _build_decompose_prompt(style: str) -> str:
-    """构建拆解任务的 System Prompt"""
+def _build_decompose_prompt(style: str, task_type: str = "todo") -> str:
+    """构建拆解任务的 System Prompt (V2)
+
+    V2 新增：
+    - 任务类型专属规则
+    - 双名结构指导
+    - 可用图片信息
+
+    Args:
+        style: 游戏化风格
+        task_type: 任务类型 (habit/daily/todo)
+
+    Returns:
+        完整的 System Prompt
+    """
+    from habitica_forge.quest import get_task_type_config, get_game_terminology
+    from habitica_forge.styles import get_style_config, get_ai_visible_images
+
     style_config = get_style_config(style)
     style_intro = style_config.prompts.decompose
-    return f"{style_intro}\n{_DECOMPOSE_TEMPLATE}"
+
+    # 获取任务类型特定规则
+    type_config = get_task_type_config(task_type)
+    type_rules = f"""
+
+## 任务类型特定规则 ({type_config.display_name})
+核心概念：{type_config.core_concept}
+常用术语：{', '.join(type_config.game_terminology[:5])}
+默认语气：{type_config.tone}"""
+
+    # 获取可用图片信息
+    available_images = get_ai_visible_images(style)
+    images_info = ""
+    if available_images:
+        images_info = f"""
+
+## 可用图片资源
+以下图片可供选择（只返回 ID）：
+{chr(10).join(f'- {img["id"]}: {img["title"]} - {img["description"]}' for img in available_images[:10])}"""
+
+    return f"{style_intro}\n{_DECOMPOSE_TEMPLATE}\n{type_rules}\n{images_info}"
 
 
 def _build_title_prompt(style: str) -> str:

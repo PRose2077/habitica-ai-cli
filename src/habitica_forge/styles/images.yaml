@@ -1,0 +1,334 @@
+# 图片资源词典
+#
+# 设计约束：
+# 1. AI 侧只读取 title / description 等语义信息，不直接读取 url。
+# 2. 程序在最终渲染 markdown 图片时，根据 image_id 查表注入 url。
+# 3. 图片资源建议保持小尺寸、稳定链接、明确版权来源。
+#
+# V2 新增：
+# - 按风格分类 (styles)
+# - 按任务原型分类 (archetypes)
+# - 按用途分类 (usage)
+# - 支持白名单控制
+
+# ============================================
+# 图片资源配置
+# ============================================
+
+defaults:
+  # 默认图片尺寸约束
+  max_width: 200
+  max_height: 200
+  # 默认启用状态
+  enabled: true
+
+# ============================================
+# 通用图片资源
+# ============================================
+
+common:
+  - id: forge-scroll
+    title: 委托卷轴
+    description: 适合任务委托、传奇任务、任务详情页头部展示的卷轴图标
+    url: https://example.com/images/forge-scroll.png
+    enabled: true
+    usage:
+      - quest_header
+      - legendary_task
+
+  - id: campfire
+    title: 营地篝火
+    description: 适合日常整理、休整、家务类任务的温和场景图标
+    url: https://example.com/images/campfire.png
+    enabled: true
+    usage:
+      - daily_task
+      - home_context
+
+  - id: check-mark
+    title: 完成标记
+    description: 任务完成时的标记图标
+    url: https://example.com/images/check-mark.png
+    enabled: true
+    usage:
+      - completion
+      - success
+
+  - id: star-badge
+    title: 星章
+    description: 成就、称号、奖励类展示图标
+    url: https://example.com/images/star-badge.png
+    enabled: true
+    usage:
+      - achievement
+      - title
+
+# ============================================
+# 奇幻风格图片
+# ============================================
+
+fantasy:
+  - id: fantasy-mage-tower
+    title: 法师塔
+    description: 适合学习、研究、阅读、知识积累类任务的地点图标
+    url: https://example.com/images/fantasy/mage-tower.png
+    enabled: true
+    archetypes:
+      - learn
+      - explore
+    usage:
+      - location
+      - study_context
+
+  - id: fantasy-sword-shield
+    title: 剑与盾
+    description: 适合战斗、挑战、对抗类任务图标
+    url: https://example.com/images/fantasy/sword-shield.png
+    enabled: true
+    archetypes:
+      - battle
+    usage:
+      - quest_header
+      - battle_context
+
+  - id: fantasy-potion
+    title: 魔法药剂
+    description: 适合补给、恢复、治疗类任务图标
+    url: https://example.com/images/fantasy/potion.png
+    enabled: true
+    archetypes:
+      - supply
+      - repair
+    usage:
+      - supply_context
+
+  - id: fantasy-scroll-ancient
+    title: 远古卷轴
+    description: 适合学习、研究、知识传承类任务图标
+    url: https://example.com/images/fantasy/scroll-ancient.png
+    enabled: true
+    archetypes:
+      - learn
+    usage:
+      - quest_header
+
+  - id: fantasy-castle
+    title: 城堡
+    description: 适合工作、项目、重要任务类图标
+    url: https://example.com/images/fantasy/castle.png
+    enabled: true
+    usage:
+      - location
+      - work_context
+
+  - id: fantasy-forest
+    title: 魔法森林
+    description: 适合探索、冒险、户外类任务图标
+    url: https://example.com/images/fantasy/forest.png
+    enabled: true
+    archetypes:
+      - explore
+    usage:
+      - location
+      - outdoors
+
+# ============================================
+# 赛博朋克风格图片
+# ============================================
+
+cyberpunk:
+  - id: cyberpunk-neon-terminal
+    title: 霓虹终端
+    description: 适合赛博朋克风格的编程、调试、技术研究类任务图标
+    url: https://example.com/images/cyberpunk/neon-terminal.png
+    enabled: true
+    archetypes:
+      - craft
+      - repair
+    usage:
+      - quest_header
+      - work_context
+
+  - id: cyberpunk-data-stream
+    title: 数据流
+    description: 适合学习、信息处理、分析类任务图标
+    url: https://example.com/images/cyberpunk/data-stream.png
+    enabled: true
+    archetypes:
+      - learn
+      - explore
+    usage:
+      - quest_header
+      - study_context
+
+  - id: cyberpunk-circuit
+    title: 电路板
+    description: 适合技术、开发、编程类任务图标
+    url: https://example.com/images/cyberpunk/circuit.png
+    enabled: true
+    archetypes:
+      - craft
+      - repair
+    usage:
+      - quest_header
+
+  - id: cyberpunk-chip
+    title: 芯片
+    description: 适合技能上传、学习、增强类任务图标
+    url: https://example.com/images/cyberpunk/chip.png
+    enabled: true
+    archetypes:
+      - supply
+      - learn
+    usage:
+      - supply_context
+
+  - id: cyberpunk-city
+    title: 赛博城市
+    description: 适合工作、项目、系统类任务地点图标
+    url: https://example.com/images/cyberpunk/city.png
+    enabled: true
+    usage:
+      - location
+      - work_context
+
+  - id: cyberpunk-shield
+    title: 数字护盾
+    description: 适合防御、保护、安全类任务图标
+    url: https://example.com/images/cyberpunk/shield.png
+    enabled: true
+    archetypes:
+      - battle
+    usage:
+      - quest_header
+
+# ============================================
+# 武侠风格图片
+# ============================================
+
+wuxia:
+  - id: wuxia-sword
+    title: 长剑
+    description: 适合武侠风格的战斗、挑战、对决类任务图标
+    url: https://example.com/images/wuxia/sword.png
+    enabled: true
+    archetypes:
+      - battle
+    usage:
+      - quest_header
+      - battle_context
+
+  - id: wuxia-scroll
+    title: 武学秘籍
+    description: 适合学习、修炼、参悟类任务图标
+    url: https://example.com/images/wuxia/scroll.png
+    enabled: true
+    archetypes:
+      - learn
+    usage:
+      - quest_header
+      - study_context
+
+  - id: wuxia-temple
+    title: 门派大殿
+    description: 适合工作、项目、组织类任务地点图标
+    url: https://example.com/images/wuxia/temple.png
+    enabled: true
+    usage:
+      - location
+      - work_context
+
+  - id: wuxia-medicine
+    title: 丹药
+    description: 适合补给、治疗、恢复类任务图标
+    url: https://example.com/images/wuxia/medicine.png
+    enabled: true
+    archetypes:
+      - supply
+      - repair
+    usage:
+      - supply_context
+
+  - id: wuxia-mountain
+    title: 山门
+    description: 适合探索、远行、户外类任务地点图标
+    url: https://example.com/images/wuxia/mountain.png
+    enabled: true
+    archetypes:
+      - explore
+    usage:
+      - location
+      - outdoors
+
+  - id: wuxia-candle
+    title: 烛火
+    description: 适合日常、修炼、冥想类任务图标
+    url: https://example.com/images/wuxia/candle.png
+    enabled: true
+    usage:
+      - daily_task
+      - habit
+
+# ============================================
+# 正常风格图片
+# ============================================
+
+normal:
+  - id: normal-checklist
+    title: 检查清单
+    description: 适合普通任务、待办事项类图标
+    url: https://example.com/images/normal/checklist.png
+    enabled: true
+    archetypes:
+      - craft
+    usage:
+      - quest_header
+
+  - id: normal-book
+    title: 书籍
+    description: 适合学习、阅读、知识类任务图标
+    url: https://example.com/images/normal/book.png
+    enabled: true
+    archetypes:
+      - learn
+    usage:
+      - study_context
+
+  - id: normal-briefcase
+    title: 公文包
+    description: 适合工作、项目、专业类任务图标
+    url: https://example.com/images/normal/briefcase.png
+    enabled: true
+    usage:
+      - location
+      - work_context
+
+  - id: normal-home
+    title: 房屋
+    description: 适合家务、整理、个人类任务图标
+    url: https://example.com/images/normal/home.png
+    enabled: true
+    usage:
+      - location
+      - home_context
+
+  - id: normal-tools
+    title: 工具箱
+    description: 适合修复、维护、制作类任务图标
+    url: https://example.com/images/normal/tools.png
+    enabled: true
+    archetypes:
+      - repair
+      - craft
+    usage:
+      - quest_header
+
+  - id: normal-cart
+    title: 购物车
+    description: 适合购买、采购、补给类任务图标
+    url: https://example.com/images/normal/cart.png
+    enabled: true
+    archetypes:
+      - supply
+    usage:
+      - supply_context

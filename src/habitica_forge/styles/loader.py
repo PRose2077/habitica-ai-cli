@@ -3,13 +3,20 @@
 从 YAML 文件加载风格配置，支持动态扩展风格。
 只需在 styles/ 目录下添加 YAML 文件即可新增风格。
 使用基础模板 + 风格变量的方式生成提示词。
+
+V2 新增：
+- 世界观词典系统 (Lexicon)
+- 任务类型命名模板
+- 任务上下文词典
+- 图片资源词典
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
+from habitica_forge.quest.archetype import QuestArchetype
 from habitica_forge.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -18,10 +25,10 @@ logger = get_logger(__name__)
 STYLES_DIR = Path(__file__).parent
 
 # 缓存
-_style_cache: dict[str, "StyleConfig"] = {}
-_all_styles_cache: Optional[list["StyleConfig"]] = None
-_case_map_cache: Optional[dict[str, str]] = None
-_base_template_cache: Optional[dict] = None
+_style_cache: Dict[str, "StyleConfig"] = {}
+_all_styles_cache: Optional[List["StyleConfig"]] = None
+_case_map_cache: Optional[Dict[str, str]] = None
+_base_template_cache: Optional[Dict] = None
 
 
 # ============================================
@@ -29,7 +36,7 @@ _base_template_cache: Optional[dict] = None
 # ============================================
 
 
-def _load_base_template() -> dict:
+def _load_base_template() -> Dict:
     """加载基础模板
 
     Returns:
@@ -55,7 +62,7 @@ def _load_base_template() -> dict:
         return {}
 
 
-def _render_template(template: str, variables: dict) -> str:
+def _render_template(template: str, variables: Dict) -> str:
     """渲染模板
 
     Args:
@@ -75,7 +82,7 @@ def _render_template(template: str, variables: dict) -> str:
         return template
 
 
-def _render_prompts(style_data: dict) -> dict:
+def _render_prompts(style_data: Dict) -> Dict:
     """渲染提示词
 
     将风格变量应用到基础模板，生成最终提示词。
@@ -119,6 +126,296 @@ def _render_prompts(style_data: dict) -> dict:
 
 
 # ============================================
+# 词典类 (V2)
+# ============================================
+
+
+class Lexicon:
+    """世界观词典
+
+    包含任务动词、名词、地点、称号、敌人、稀有度等词典。
+    """
+
+    def __init__(self, data: Dict[str, Any]):
+        self._data = data
+
+    @property
+    def verbs(self) -> Dict[str, List[str]]:
+        """任务动词词典（按原型分类）"""
+        return self._data.get("verbs", {})
+
+    @property
+    def nouns(self) -> Dict[str, List[str]]:
+        """名词词典（按原型分类）"""
+        return self._data.get("nouns", {})
+
+    @property
+    def locations(self) -> Dict[str, str]:
+        """地点词典"""
+        return self._data.get("locations", {})
+
+    @property
+    def titles(self) -> Dict[str, List[str]]:
+        """称号词典（按领域分类）"""
+        return self._data.get("titles", {})
+
+    @property
+    def enemies(self) -> Dict[str, str]:
+        """敌人/挑战词典"""
+        return self._data.get("enemies", {})
+
+    @property
+    def rarities(self) -> Dict[str, str]:
+        """稀有度词典"""
+        return self._data.get("rarities", {})
+
+    def get_verbs_for_archetype(self, archetype: str) -> List[str]:
+        """获取指定原型的动词列表
+
+        Args:
+            archetype: 原型名称（如 cleanup, repair）
+
+        Returns:
+            动词列表
+        """
+        return self.verbs.get(archetype, [])
+
+    def get_nouns_for_archetype(self, archetype: str) -> List[str]:
+        """获取指定原型的名词列表
+
+        Args:
+            archetype: 原型名称
+
+        Returns:
+            名词列表
+        """
+        return self.nouns.get(archetype, [])
+
+    def get_location_mapping(self, location_key: str) -> str:
+        """获取地点映射
+
+        Args:
+            location_key: 现实地点键
+
+        Returns:
+            游戏化地点名称，未找到时返回原键
+        """
+        return self.locations.get(location_key, location_key)
+
+    def get_titles_for_domain(self, domain: str) -> List[str]:
+        """获取指定领域的称号列表
+
+        Args:
+            domain: 领域名称（如 productivity, learning）
+
+        Returns:
+            称号列表
+        """
+        return self.titles.get(domain, self.titles.get("default", []))
+
+    def get_enemy_name(self, enemy_type: str) -> str:
+        """获取敌人/挑战名称
+
+        Args:
+            enemy_type: 敌人类型（如 procrastination）
+
+        Returns:
+            敌人名称
+        """
+        return self.enemies.get(enemy_type, self.enemies.get("default", enemy_type))
+
+    def get_rarity_label(self, rarity: str) -> str:
+        """获取稀有度标签
+
+        Args:
+            rarity: 稀有度级别（如 trivial, easy, medium）
+
+        Returns:
+            稀有度标签
+        """
+        return self.rarities.get(rarity, rarity)
+
+
+class StyleTemplates:
+    """风格命名模板
+
+    包含 Habit/Daily/Todo 各自的命名模板。
+    """
+
+    def __init__(self, data: Dict[str, Any]):
+        self._data = data
+
+    @property
+    def habit(self) -> Dict[str, str]:
+        """Habit 模板"""
+        return self._data.get("habit", {})
+
+    @property
+    def daily(self) -> Dict[str, str]:
+        """Daily 模板"""
+        return self._data.get("daily", {})
+
+    @property
+    def todo(self) -> Dict[str, str]:
+        """Todo 模板"""
+        return self._data.get("todo", {})
+
+    def get_habit_template(self, template_type: str = "neutral") -> str:
+        """获取 Habit 模板
+
+        Args:
+            template_type: 模板类型 (positive/negative/neutral)
+
+        Returns:
+            模板字符串
+        """
+        return self.habit.get(template_type, "{action}")
+
+    def get_daily_template(self, template_type: str = "simple") -> str:
+        """获取 Daily 模板
+
+        Args:
+            template_type: 模板类型 (with_location/simple/routine)
+
+        Returns:
+            模板字符串
+        """
+        return self.daily.get(template_type, "{action}")
+
+    def get_todo_template(self, template_type: str = "simple") -> str:
+        """获取 Todo 模板
+
+        Args:
+            template_type: 模板类型 (with_priority/with_location/simple/legendary)
+
+        Returns:
+            模板字符串
+        """
+        return self.todo.get(template_type, "{title}")
+
+
+class ContextDictionary:
+    """任务上下文词典
+
+    定义不同上下文（工作、学习、家务等）的游戏化规则。
+    """
+
+    def __init__(self, data: Dict[str, Any]):
+        self._data = data
+
+    @property
+    def work(self) -> Dict[str, Any]:
+        """工作上下文"""
+        return self._data.get("work", {})
+
+    @property
+    def study(self) -> Dict[str, Any]:
+        """学习上下文"""
+        return self._data.get("study", {})
+
+    @property
+    def home(self) -> Dict[str, Any]:
+        """家务上下文"""
+        return self._data.get("home", {})
+
+    @property
+    def personal(self) -> Dict[str, Any]:
+        """个人发展上下文"""
+        return self._data.get("personal", {})
+
+    def detect_context(self, text: str) -> Optional[str]:
+        """从文本中检测上下文
+
+        Args:
+            text: 任务文本
+
+        Returns:
+            检测到的上下文名称（work/study/home/personal），未检测到返回 None
+        """
+        text_lower = text.lower()
+
+        for context_name, context_data in self._data.items():
+            hints = context_data.get("location_hints", [])
+            for hint in hints:
+                if hint.lower() in text_lower:
+                    return context_name
+
+        return None
+
+    def get_context_data(self, context_name: str) -> Dict[str, Any]:
+        """获取上下文数据
+
+        Args:
+            context_name: 上下文名称
+
+        Returns:
+            上下文数据字典
+        """
+        return self._data.get(context_name, {})
+
+    def get_location_mapping(self, context_name: str) -> str:
+        """获取上下文对应的地点映射
+
+        Args:
+            context_name: 上下文名称
+
+        Returns:
+            地点映射名称
+        """
+        context_data = self.get_context_data(context_name)
+        return context_data.get("location_mapping", "")
+
+    def get_verbs(self, context_name: str) -> List[str]:
+        """获取上下文对应的动词
+
+        Args:
+            context_name: 上下文名称
+
+        Returns:
+            动词列表
+        """
+        context_data = self.get_context_data(context_name)
+        return context_data.get("verbs", [])
+
+
+class QualityBaseline:
+    """风格质量基线
+
+    包含标准输入输出样例，用于验证风格一致性。
+    """
+
+    def __init__(self, samples: List[Dict[str, Any]]):
+        self._samples = samples
+
+    @property
+    def samples(self) -> List[Dict[str, Any]]:
+        """获取所有样例"""
+        return self._samples
+
+    def get_samples_for_archetype(self, archetype: str) -> List[Dict[str, Any]]:
+        """获取指定原型的样例
+
+        Args:
+            archetype: 原型名称
+
+        Returns:
+            样例列表
+        """
+        return [s for s in self._samples if s.get("archetype") == archetype]
+
+    def get_samples_for_context(self, context: str) -> List[Dict[str, Any]]:
+        """获取指定上下文的样例
+
+        Args:
+            context: 上下文名称
+
+        Returns:
+            样例列表
+        """
+        return [s for s in self._samples if s.get("context") == context]
+
+
+# ============================================
 # 配置类
 # ============================================
 
@@ -126,7 +423,7 @@ def _render_prompts(style_data: dict) -> dict:
 class PromptConfig:
     """提示词配置"""
 
-    def __init__(self, data: dict):
+    def __init__(self, data: Dict):
         self._data = data
 
     @property
@@ -157,13 +454,25 @@ class PromptConfig:
 
 
 class StyleConfig:
-    """风格配置"""
+    """风格配置
 
-    def __init__(self, data: dict, style_name: str):
+    V2 增强：
+    - lexicon: 世界观词典
+    - templates: 命名模板
+    - context: 上下文词典
+    - quality_baseline: 质量基线
+    """
+
+    def __init__(self, data: Dict, style_name: str):
         self._data = data
         self._name = style_name
         # 渲染提示词
         self._prompts = PromptConfig(_render_prompts(data))
+        # V2 词典
+        self._lexicon = Lexicon(data.get("lexicon", {}))
+        self._templates = StyleTemplates(data.get("templates", {}))
+        self._context = ContextDictionary(data.get("context", {}))
+        self._quality_baseline = QualityBaseline(data.get("quality_baseline", []))
 
     @property
     def name(self) -> str:
@@ -186,14 +495,165 @@ class StyleConfig:
         return self._prompts
 
     @property
-    def examples(self) -> dict[str, list[str]]:
+    def examples(self) -> Dict[str, List[str]]:
         """示例映射"""
         return self._data.get("examples", {})
 
     @property
-    def variables(self) -> dict:
+    def variables(self) -> Dict:
         """风格变量"""
         return self._data.get("variables", {})
+
+    # ============================================
+    # V2 新增属性
+    # ============================================
+
+    @property
+    def lexicon(self) -> Lexicon:
+        """世界观词典"""
+        return self._lexicon
+
+    @property
+    def templates(self) -> StyleTemplates:
+        """命名模板"""
+        return self._templates
+
+    @property
+    def context(self) -> ContextDictionary:
+        """上下文词典"""
+        return self._context
+
+    @property
+    def quality_baseline(self) -> QualityBaseline:
+        """质量基线"""
+        return self._quality_baseline
+
+    # ============================================
+    # V2 便捷方法
+    # ============================================
+
+    def get_verb_for_archetype(
+        self, archetype: QuestArchetype, context: Optional[str] = None
+    ) -> Optional[str]:
+        """获取适合当前原型和上下文的动词
+
+        Args:
+            archetype: 任务原型
+            context: 可选的上下文名称
+
+        Returns:
+            随机选择的动词，无匹配时返回 None
+        """
+        import random
+
+        archetype_name = archetype.value if isinstance(archetype, QuestArchetype) else archetype
+
+        # 先从原型词典获取
+        verbs = self.lexicon.get_verbs_for_archetype(archetype_name)
+
+        # 如果有上下文，也获取上下文动词
+        if context:
+            context_verbs = self.context.get_verbs(context)
+            verbs = verbs + context_verbs
+
+        if verbs:
+            return random.choice(verbs)
+        return None
+
+    def get_noun_for_archetype(self, archetype: QuestArchetype) -> Optional[str]:
+        """获取适合当前原型的名词
+
+        Args:
+            archetype: 任务原型
+
+        Returns:
+            随机选择的名词，无匹配时返回 None
+        """
+        import random
+
+        archetype_name = archetype.value if isinstance(archetype, QuestArchetype) else archetype
+        nouns = self.lexicon.get_nouns_for_archetype(archetype_name)
+
+        if nouns:
+            return random.choice(nouns)
+        return None
+
+    def gamify_location(self, location_key: str, context: Optional[str] = None) -> str:
+        """游戏化地点名称
+
+        Args:
+            location_key: 现实地点键
+            context: 可选的上下文名称
+
+        Returns:
+            游戏化后的地点名称
+        """
+        # 先尝试直接映射
+        mapped = self.lexicon.get_location_mapping(location_key)
+        if mapped != location_key:
+            return mapped
+
+        # 尝试从上下文获取
+        if context:
+            context_location = self.context.get_location_mapping(context)
+            if context_location:
+                return context_location
+
+        return location_key
+
+    def detect_task_context(self, text: str) -> Optional[str]:
+        """检测任务上下文
+
+        Args:
+            text: 任务文本
+
+        Returns:
+            检测到的上下文名称
+        """
+        return self.context.detect_context(text)
+
+    def get_habit_title_template(self, is_positive: bool = True) -> str:
+        """获取 Habit 标题模板
+
+        Args:
+            is_positive: 是否为正向行为
+
+        Returns:
+            模板字符串
+        """
+        template_type = "positive" if is_positive else "negative"
+        return self.templates.get_habit_template(template_type)
+
+    def get_daily_title_template(self, has_location: bool = False) -> str:
+        """获取 Daily 标题模板
+
+        Args:
+            has_location: 是否包含地点
+
+        Returns:
+            模板字符串
+        """
+        template_type = "with_location" if has_location else "simple"
+        return self.templates.get_daily_template(template_type)
+
+    def get_todo_title_template(
+        self, has_priority: bool = False, is_legendary: bool = False
+    ) -> str:
+        """获取 Todo 标题模板
+
+        Args:
+            has_priority: 是否包含优先级
+            is_legendary: 是否为传奇任务
+
+        Returns:
+            模板字符串
+        """
+        if is_legendary:
+            return self.templates.get_todo_template("legendary")
+        elif has_priority:
+            return self.templates.get_todo_template("with_priority")
+        else:
+            return self.templates.get_todo_template("simple")
 
 
 # ============================================
@@ -270,7 +730,7 @@ def get_style_config(style_name: str) -> StyleConfig:
     return config
 
 
-def get_all_style_configs() -> list[StyleConfig]:
+def get_all_style_configs() -> List[StyleConfig]:
     """获取所有风格配置
 
     扫描 styles 目录下的所有 YAML 文件（排除 base_template.yaml）。
@@ -287,8 +747,8 @@ def get_all_style_configs() -> list[StyleConfig]:
 
     for yaml_file in STYLES_DIR.glob("*.yaml"):
         style_name = yaml_file.stem
-        # 跳过 base_template
-        if style_name == "base_template":
+        # 跳过 base_template 和 images
+        if style_name in ("base_template", "images"):
             continue
         config = get_style_config(style_name)
         if config:
@@ -316,7 +776,7 @@ def reload_styles() -> None:
 # ============================================
 
 
-def get_all_style_names() -> list[str]:
+def get_all_style_names() -> List[str]:
     """获取所有风格名称列表
 
     Returns:
@@ -352,7 +812,7 @@ def get_style_description(style: str) -> str:
     return config.description
 
 
-def get_style_case_map() -> dict[str, str]:
+def get_style_case_map() -> Dict[str, str]:
     """获取风格大小写映射表
 
     动态生成，支持新风格自动加入映射。

@@ -4,6 +4,9 @@
 - 当前佩戴称号
 - 用户 ID（部分显示）
 - 系统状态
+
+V2 阶段五增强：
+- 职业倾向显示
 """
 
 from typing import Optional, Tuple
@@ -79,14 +82,19 @@ def render_identity_header(
     title: Optional[str] = None,
     corrupted_count: int = 0,
     status: str = "就绪",
+    profession_name: Optional[str] = None,
 ) -> None:
     """
     渲染身份标识 Header
+
+    V2 阶段五增强：
+    - 支持职业倾向显示
 
     Args:
         title: 称号名称（如果为 None 则自动从缓存获取）
         corrupted_count: 腐烂任务数量（用于动态前缀）
         status: 系统状态显示
+        profession_name: 职业倾向名称
     """
     try:
         # 获取称号
@@ -111,6 +119,10 @@ def render_identity_header(
         else:
             content_parts.append("[dim]称号:[/] [dim]未佩戴[/]")
 
+        # V2 阶段五：职业倾向
+        if profession_name:
+            content_parts.append(f"[dim]职业:[/] [cyan]「{profession_name}」[/]")
+
         # 系统状态
         status_color = "green" if status == "就绪" else "yellow"
         if not cache_valid:
@@ -134,13 +146,18 @@ def render_identity_header(
 def render_compact_header(
     title: Optional[str] = None,
     corrupted_count: int = 0,
+    profession_name: Optional[str] = None,
 ) -> str:
     """
     渲染紧凑型 Header（单行文本，用于表格标题等）
 
+    V2 阶段五增强：
+    - 支持职业倾向显示
+
     Args:
         title: 称号名称
         corrupted_count: 腐烂任务数量
+        profession_name: 职业倾向名称
 
     Returns:
         Rich 格式的字符串
@@ -150,11 +167,16 @@ def render_compact_header(
     else:
         identity = title
 
+    parts = []
+
     if identity:
         corruption_prefix = get_corruption_prefix(corrupted_count)
-        return f"[magenta]{corruption_prefix}【{identity}】[/]"
+        parts.append(f"[magenta]{corruption_prefix}【{identity}】[/]")
 
-    return ""
+    if profession_name:
+        parts.append(f"[cyan]「{profession_name}」[/]")
+
+    return " ".join(parts)
 
 
 # ============================================

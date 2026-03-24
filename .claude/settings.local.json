@@ -22,7 +22,8 @@
       "Bash(find:*)",
       "Bash(cd:*)",
       "Bash(python:*)",
-      "Bash(py:*)"
+      "Bash(py:*)",
+      "Bash(uv sync:*)"
     ]
   }
 }

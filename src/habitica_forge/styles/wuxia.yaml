@@ -1,11 +1,155 @@
 # 武侠风格配置
+# V2 世界观词典系统
+
 name: wuxia
 display_name: 武侠风格
 description: 武功、门派、江湖、修炼等武侠元素
 
-# 风格变量（用于渲染基础模板）
+# ============================================
+# 世界观词典 (Lexicon)
+# ============================================
+
+lexicon:
+  # 任务动词词典 - 按原型分类
+  verbs:
+    cleanup: ["涤荡", "扫除", "清理", "斩断", "净化", "清除"]
+    repair: ["疗伤", "修补", "调理", "修复", "治愈", "修复"]
+    explore: ["探寻", "搜寻", "探访", "踏访", "寻找", "追踪"]
+    craft: ["锻造", "炼制", "创造", "修炼", "铸就", "打造"]
+    communicate: ["传书", "联络", "拜访", "约见", "飞鸽", "传音"]
+    learn: ["修炼", "参悟", "研习", "领悟", "悟道", "习得"]
+    battle: ["对决", "击败", "降伏", "征服", "挑战", "对决"]
+    supply: ["筹集", "收集", "准备", "补充", "搜罗", "囤积"]
+
+  # 名词词典 - 按原型分类
+  nouns:
+    cleanup: ["尘埃", "杂念", "俗务", "障碍", "积弊", "尘埃"]
+    repair: ["内伤", "经脉", "破损", "损耗", "创伤", "伤痕"]
+    explore: ["秘籍", "遗迹", "传说", "线索", "踪迹", "秘境"]
+    craft: ["神兵", "丹药", "功法", "秘籍", "宝物", "利器"]
+    communicate: ["江湖", "同道", "门派", "侠客", "信函", "传讯"]
+    learn: ["内功", "心法", "招式", "武学", "秘技", "功法"]
+    battle: ["对手", "强敌", "魔头", "妖邪", "仇敌", "劲敌"]
+    supply: ["丹药", "兵器", "盘缠", "物资", "补给", "利器"]
+
+  # 地点词典 - 现实地点到武侠地点映射
+  locations:
+    # 家居空间
+    home: "宅邸"
+    room: "厢房"
+    bedroom: "寝室"
+    kitchen: "灶房"
+    bathroom: "净室"
+    living_room: "正厅"
+    study: "书房"
+    garage: "马厩"
+    garden: "后园"
+    # 工作空间
+    office: "门派大殿"
+    desk: "案台"
+    meeting_room: "议事厅"
+    # 学习空间
+    library: "藏经阁"
+    classroom: "练武场"
+    lab: "丹房"
+    # 户外空间
+    outdoors: "江湖"
+    gym: "演武场"
+    store: "集市"
+    # 抽象空间
+    online: "飞鸽传书"
+    computer: "案台"
+    phone: "传音符"
+
+  # 称号词典 - 按领域分类
+  titles:
+    productivity: ["门派功臣", "任务完成者", "侠义行者"]
+    learning: ["武学新秀", "功法研习者", "内功初成者"]
+    health: ["体魄强健者", "内力深厚者", "修炼达人"]
+    creativity: ["锻造高手", "丹药大师", "武学创造者"]
+    social: ["江湖名士", "交际能手", "人脉广阔者"]
+    default: ["侠客", "江湖中人", "武者"]
+
+  # 敌人/挑战词典 - 按类型分类
+  enemies:
+    procrastination: "懒散之心"
+    distraction: "心神不宁"
+    fatigue: "内力损耗"
+    confusion: "心魔侵扰"
+    overload: "走火入魔"
+    disorder: "经脉紊乱"
+    default: "心魔"
+
+  # 稀有度词典
+  rarities:
+    trivial: "杂务"
+    easy: "事务"
+    medium: "要事"
+    hard: "大事"
+    legendary: "大业"
+
+# ============================================
+# 任务类型命名模板
+# ============================================
+
+templates:
+  # Habit 模板 - 强调修炼和坚持
+  habit:
+    positive: "【修炼】{action}"
+    negative: "【克制】避免{action}"
+    neutral: "【习惯】{action}"
+
+  # Daily 模板 - 强调日常修行
+  daily:
+    with_location: "【{location}】{action}"
+    simple: "【日课】{action}"
+    routine: "【例行】{action}"
+
+  # Todo 模板 - 强调事务感
+  todo:
+    with_priority: "【{priority}】{title}"
+    with_location: "【{location}】{title}"
+    simple: "【事务】{title}"
+    legendary: "【大业】{title}"
+
+# ============================================
+# 任务上下文词典
+# ============================================
+
+context:
+  # 工作类任务上下文
+  work:
+    location_hints: ["工作", "公司", "项目", "会议", "报告", "邮件"]
+    location_mapping: "门派"
+    verbs: ["完成", "禀报", "协调", "推进", "交付"]
+    tone: "门派事务"
+
+  # 学习类任务上下文
+  study:
+    location_hints: ["学习", "阅读", "课程", "练习", "培训", "研究"]
+    location_mapping: "藏经阁"
+    verbs: ["修炼", "参悟", "研习", "领悟", "掌握"]
+    tone: "武学修习"
+
+  # 家务类任务上下文
+  home:
+    location_hints: ["打扫", "整理", "清洁", "做饭", "洗衣", "收拾"]
+    location_mapping: "宅邸"
+    verbs: ["清理", "整理", "维护", "准备", "涤荡"]
+    tone: "宅邸维护"
+
+  # 个人发展上下文
+  personal:
+    location_hints: ["健身", "运动", "冥想", "休息", "健康"]
+    location_mapping: "演武场"
+    verbs: ["修炼", "强化", "提升", "锻炼", "恢复"]
+    tone: "身心修炼"
+
+# ============================================
+# 风格变量（用于渲染基础模板，V1 兼容）
+# ============================================
+
 variables:
-  # 风格基本信息
   style_name: "武侠"
   style_description: "充满江湖气息和武道精神"
   style_elements: "武功、门派、江湖、修炼、内功"
@@ -43,3 +187,58 @@ variables:
   example_refine_checklist_1: "寻访名师获取秘籍"
   example_refine_checklist_2: "制定修炼计划"
   example_refine_checklist_3: "演练基础招式"
+
+# ============================================
+# 质量基线样例 (Quality Baseline)
+# ============================================
+
+quality_baseline:
+  - input: "打扫房间"
+    output: "涤荡厢房"
+    archetype: cleanup
+    context: home
+
+  - input: "完成项目报告"
+    output: "完成门派事务报告"
+    archetype: craft
+    context: work
+
+  - input: "学习 Python"
+    output: "修炼 Python 功法"
+    archetype: learn
+    context: study
+
+  - input: "回复客户邮件"
+    output: "传书回复客户"
+    archetype: communicate
+    context: work
+
+  - input: "整理文档"
+    output: "整理案台卷宗"
+    archetype: cleanup
+    context: work
+
+  - input: "购买日用品"
+    output: "筹集日常物资"
+    archetype: supply
+    context: home
+
+  - input: "健身 30 分钟"
+    output: "演武场修炼 30 分钟"
+    archetype: learn
+    context: personal
+
+  - input: "解决代码 Bug"
+    output: "修复功法瑕疵"
+    archetype: repair
+    context: work
+
+  - input: "阅读一本书"
+    output: "研读武功秘籍"
+    archetype: learn
+    context: study
+
+  - input: "整理书架"
+    output: "整理藏经阁"
+    archetype: cleanup
+    context: home

@@ -389,3 +389,121 @@ def trigger_bounty_drop(
         return True
 
     return False
+
+
+# ============================================
+# 任务链完成奖励 (V2 阶段四)
+# ============================================
+
+# 任务链完成奖励系数
+CHAIN_COMPLETION_BONUS = {
+    2: 1.5,   # 2个任务的链，掉落概率 +50%
+    3: 2.0,   # 3个任务的链，掉落概率 +100%
+    4: 2.5,   # 4个任务的链，掉落概率 +150%
+    5: 3.0,   # 5个任务的链，掉落概率 +200%
+}
+
+# 任务链完成额外奖励阈值
+CHAIN_TITLE_THRESHOLD_BONUS = -2.0  # 降低阈值，提高掉落概率
+
+
+def calculate_chain_completion_bonus(
+    chain_length: int,
+    chain_name: Optional[str] = None,
+) -> dict:
+    """
+    计算任务链完成的奖励加成
+
+    V2 阶段四新增：
+    - 根据任务链长度计算奖励加成
+    - 返回奖励详情用于展示
+
+    Args:
+        chain_length: 任务链长度（任务数量）
+        chain_name: 任务链名称（可选，用于展示）
+
+    Returns:
+        dict: 包含奖励详情的字典
+            - bonus_multiplier: 掉落概率加成系数
+            - threshold_reduction: 阈值降低值
+            - guaranteed_drop: 是否保证掉落
+            - message: 奖励信息
+    """
+    # 获取基础加成
+    bonus_multiplier = CHAIN_COMPLETION_BONUS.get(chain_length, 3.0)
+
+    # 超过 5 个任务的链，保证掉落
+    guaranteed_drop = chain_length >= 5
+
+    # 计算阈值降低
+    threshold_reduction = CHAIN_TITLE_THRESHOLD_BONUS
+
+    # 构建奖励信息
+    if guaranteed_drop:
+        message = f"任务链「{chain_name or '未命名'}」完成！获得稀有称号！"
+    elif bonus_multiplier >= 2.0:
+        message = f"任务链「{chain_name or '未命名'}」完成！称号掉落概率大幅提升！"
+    else:
+        message = f"任务链「{chain_name or '未命名'}」完成！称号掉落概率提升！"
+
+    return {
+        "bonus_multiplier": bonus_multiplier,
+        "threshold_reduction": threshold_reduction,
+        "guaranteed_drop": guaranteed_drop,
+        "message": message,
+        "chain_length": chain_length,
+    }
+
+
+def trigger_chain_completion_reward(
+    task_id: str,
+    task_text: str,
+    chain_length: int,
+    chain_name: Optional[str] = None,
+    style: Optional[str] = None,
+    priority: float = 1.5,
+) -> bool:
+    """
+    触发任务链完成奖励
+
+    V2 阶段四新增：
+    - 任务链完成时调用此函数
+    - 给予更高概率的称号掉落
+    - 长任务链可能保证掉落
+
+    Args:
+        task_id: 任务 ID
+        task_text: 任务内容
+        chain_length: 任务链长度
+        chain_name: 任务链名称
+        style: 游戏化风格
+        priority: 任务优先级
+
+    Returns:
+        是否触发了掉落
+    """
+    # 计算奖励
+    bonus = calculate_chain_completion_bonus(chain_length, chain_name)
+
+    # 如果保证掉落
+    if bonus["guaranteed_drop"]:
+        spawn_title_generator(task_id, task_text, style)
+        logger.info(f"Chain completion guaranteed drop! Chain: {chain_name}")
+        return True
+
+    # 计算调整后的分数
+    result = calculate_drop_score(priority, "todo", 0)
+
+    # 应用加成
+    adjusted_score = result.drop_score * bonus["bonus_multiplier"]
+    adjusted_threshold = result.threshold + bonus["threshold_reduction"]
+
+    if adjusted_score >= adjusted_threshold:
+        spawn_title_generator(task_id, task_text, style)
+        logger.info(
+            f"Chain completion drop triggered! "
+            f"Adjusted score: {adjusted_score:.2f} >= {adjusted_threshold:.2f}"
+        )
+        return True
+
+    return False

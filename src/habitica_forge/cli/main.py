@@ -1,15 +1,14 @@
 """CLI 主入口"""
 
 import asyncio
-from datetime import datetime
 from typing import Optional
 
 import typer
 
 from habitica_forge import __version__
 from habitica_forge.cli.commands import task_app
-from habitica_forge.cli.smart import smart_app
 from habitica_forge.cli.style import style_app
+from habitica_forge.cli.gamify import gamify_app
 from habitica_forge.cli.viewer import (
     render_daily_list,
     render_habit_list,
@@ -21,10 +20,8 @@ from habitica_forge.core.bounty import (
     is_pending_wall_tag,
     make_active_tag_name,
     parse_wall_tags,
-    trigger_bounty_drop,
 )
 from habitica_forge.core.cache import get_cache_manager
-from habitica_forge.models import TaskData
 from habitica_forge.utils.logger import console, get_logger, init_logging, print_error, print_success, print_info
 
 logger = get_logger(__name__)
@@ -38,11 +35,11 @@ app = typer.Typer(
 # 注册任务命令
 app.add_typer(task_app, name="task")
 
-# 注册智能拆解命令
-app.add_typer(smart_app, name="smart")
-
 # 注册风格管理命令
 app.add_typer(style_app, name="style")
+
+# 注册游戏化命令（统一入口，包含智能拆解）
+app.add_typer(gamify_app, name="gamify")
 
 
 def _init_app():
@@ -275,98 +272,6 @@ def show(
         asyncio.run(_show())
     except Exception as e:
         print_error(f"获取任务详情失败: {e}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def add(
-    text: str = typer.Argument(..., help="任务内容"),
-    notes: Optional[str] = typer.Option(None, "--notes", "-n", help="任务备注"),
-    priority: str = typer.Option(
-        "easy", "--priority", "-p", help="难度: trivial, easy, medium, hard"
-    ),
-    due: Optional[str] = typer.Option(None, "--due", "-d", help="截止日期 (YYYY-MM-DD)"),
-    tags: Optional[str] = typer.Option(None, "--tags", "-t", help="标签，逗号分隔"),
-):
-    """
-    添加新任务
-
-    示例:
-        forge add "完成项目报告"
-        forge add "写代码" -n "重要项目" -p hard
-        forge add "读书" -d 2024-12-31 -t "学习,重要"
-    """
-    # 解析优先级
-    priority_map = {
-        "trivial": 0.1,
-        "easy": 1.0,
-        "medium": 1.5,
-        "hard": 2.0,
-    }
-    priority_value = priority_map.get(priority.lower(), 1.0)
-
-    # 解析日期
-    due_date = None
-    if due:
-        try:
-            due_date = datetime.strptime(due, "%Y-%m-%d")
-        except ValueError:
-            print_error(f"日期格式错误: {due}，应为 YYYY-MM-DD")
-            raise typer.Exit(1)
-
-    # 解析标签
-    tag_names = []
-    if tags:
-        tag_names = [t.strip() for t in tags.split(",") if t.strip()]
-
-    async def _add():
-        async with HabiticaClient() as client:
-            # 处理标签
-            tag_ids = []
-            if tag_names:
-                for tag_name in tag_names:
-                    tag = await client.get_or_create_tag(tag_name)
-                    tag_ids.append(tag.id)
-
-            # 创建任务
-            task = TaskData(
-                text=text,
-                type="todo",
-                notes=notes,
-                priority=priority_value,
-                date=due_date,
-                tags=tag_ids,
-            )
-
-            created = await client.create_task(task)
-
-            # 清除缓存
-            get_cache_manager().invalidate_all()
-
-            # 检查悬赏掉落
-            from habitica_forge.core.config import get_settings
-            current_settings = get_settings()
-            dropped = trigger_bounty_drop(
-                task_id=created.id,
-                task_text=created.text,
-                priority=priority_value,
-                task_type="todo",
-                style=current_settings.forge_style,
-            )
-
-            print_success(f"任务已创建: {created.id[:8]}")
-            console.print(f"  [label]内容:[/] {created.text}")
-            if created.notes:
-                console.print(f"  [label]备注:[/] {created.notes}")
-
-            if dropped:
-                console.print()
-                print_info("🌟 悬赏触发！正在后台生成称号...")
-
-    try:
-        asyncio.run(_add())
-    except Exception as e:
-        print_error(f"创建任务失败: {e}")
         raise typer.Exit(1)
 
 
@@ -705,84 +610,6 @@ def switch(
     except Exception as e:
         print_error(f"佩戴称号失败: {e}")
         raise typer.Exit(1)
-
-
-# ============================================
-# 智能拆解快捷命令
-# ============================================
-
-
-@app.command("smart-task")
-def smart_task(
-    task_id: str = typer.Argument(..., help="任务编号或 ID"),
-    keep_existing: bool = typer.Option(
-        False, "--keep", "-k", help="保留现有子任务并在基础上优化"
-    ),
-):
-    """
-    智能拆解现有任务
-
-    使用 AI 分析并拆解指定任务，生成可执行的子任务步骤。
-
-    示例:
-        forge smart-task 1           # 拆解编号为 1 的任务
-        forge smart-task abc12345    # 拆解指定 ID 的任务
-        forge smart-task 1 --keep    # 保留现有子任务
-    """
-    from habitica_forge.cli.smart import smart_task as _smart_task_impl
-    _smart_task_impl(task_id, keep_existing)
-
-
-@app.command("smart-add")
-def smart_add(
-    text: str = typer.Argument(..., help="任务描述"),
-    notes: Optional[str] = typer.Option(None, "--notes", "-n", help="任务备注"),
-    no_decompose: bool = typer.Option(
-        False, "--no-decompose", help="不拆解，只让 AI 优化标题"
-    ),
-):
-    """
-    智能添加任务（自动拆解）
-
-    使用 AI 分析任务描述，优化标题并自动拆解为子任务。
-
-    示例:
-        forge smart-add "完成项目报告"
-        forge smart-add "学习新技术" -n "重要技能"
-        forge smart-add "简单任务" --no-decompose
-    """
-    from habitica_forge.cli.smart import smart_add as _smart_add_impl
-    _smart_add_impl(text, notes, no_decompose)
-
-
-@app.command("edit")
-def smart_edit(
-    task_id: str = typer.Argument(..., help="任务编号或 ID"),
-    field: str = typer.Option(
-        "title",
-        "--field",
-        "-f",
-        help="要修改的字段: title(标题), notes(备注), checklist(子任务)",
-    ),
-    context: str = typer.Option(
-        ...,
-        "--context",
-        "-c",
-        help="提供给 AI 的额外上下文信息",
-    ),
-):
-    """
-    使用 AI 针对性修改任务的特定字段
-
-    根据用户提供的额外信息，让 AI 重新生成任务的标题、备注或子任务。
-
-    示例:
-        forge edit 1 -f title -c "周报是在飞书上写的"
-        forge edit 2 -f notes -c "这是给客户演示用的"
-        forge edit 3 -f checklist -c "需要在下午 5 点前完成"
-    """
-    from habitica_forge.cli.smart import smart_edit as _smart_edit_impl
-    _smart_edit_impl(task_id, field, context)
 
 
 if __name__ == "__main__":
